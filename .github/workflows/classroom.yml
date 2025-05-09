@@ -1,0 +1,567 @@
+name: DST Autograding Workflow
+
+'on':
+  push:
+    branches:
+      - main
+
+permissions:
+  checks: write
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-autograding-tests:
+    runs-on:
+      group: org/dst-auto-grading-group
+    if: github.actor != 'github-classroom[bot]'
+
+    steps:
+      - name: Ensure that Grading Workflow re-runs are cancelled
+        run: |
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+              echo "Re-run detected. Re-runs are not permitted because the results of Grading Workflow re-runs are not transmitted to GitHub Classroom."
+              echo ""
+              echo "Exiting ..."
+              exit 1
+          else
+              echo "This is the first run of the Grading Workflow for commit $GITHUB_SHA"
+              echo ""
+              echo "Proceeding with the Grading Workflow ..."
+          fi
+
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Compile Root Project and install JPA
+        run: mvn compile -Pall -DskipTests && mvn install -Pass1-jpa -DskipTests && docker compose -f docker/docker-compose.yml up -d
+
+      - name: Test setUp_createsQueues
+        id: setUp_createsQueues
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: setUp_createsQueues
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.QueueManagerTest#setUp_createsQueues
+          timeout: 1
+          max-score: 10
+
+      - name: Test setUp_createsExchange
+        id: setUp_createsExchange
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: setUp_createsExchange
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.QueueManagerTest#setUp_createsExchange
+          timeout: 1
+          max-score: 10
+
+      - name: Test tearDown_removesQueues
+        id: tearDown_removesQueues
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: tearDown_removesQueues
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.QueueManagerTest#tearDown_removesQueues
+          timeout: 1
+          max-score: 3
+
+      - name: Test tearDown_removesExchange
+        id: tearDown_removesExchange
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: tearDown_removesExchange
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.QueueManagerTest#tearDown_removesExchange
+          timeout: 1
+          max-score: 2
+
+      - name: Test testConnectsToRabbitMQ
+        id: testConnectsToRabbitMQ
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testConnectsToRabbitMQ
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.RequestGatewayConnectionTest#testConnectsToRabbitMQ
+          timeout: 1
+          max-score: 5
+
+      - name: Test submitRequest_routesRequestsToCorrectQueues
+        id: submitRequest_routesRequestsToCorrectQueues
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: submitRequest_routesRequestsToCorrectQueues
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.RequestGatewayTest#submitRequest_routesRequestsToCorrectQueues
+          timeout: 1
+          max-score: 20
+
+      - name: Test submitRequest_serializesIntoJsonFormat
+        id: submitRequest_serializesIntoJsonFormat
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: submitRequest_serializesIntoJsonFormat
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.RequestGatewayTest#submitRequest_serializesIntoJsonFormat
+          timeout: 1
+          max-score: 20
+
+      - name: Test testHttpClientIsUsedForQueueInfo
+        id: testHttpClientIsUsedForQueueInfo
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testHttpClientIsUsedForQueueInfo
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorConnectionTest#testHttpClientIsUsedForQueueInfo
+          timeout: 1
+          max-score: 5
+
+      - name: Test testSubscribeRegistersConsumers
+        id: testSubscribeRegistersConsumers
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testSubscribeRegistersConsumers
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorConnectionTest#testSubscribeRegistersConsumers
+          timeout: 1
+          max-score: 10
+
+      - name: Test testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys
+        id: testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorQueueBindTest#testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys
+          timeout: 1
+          max-score: 10
+
+      - name: Test getRequestCount_returnsCorrectCount
+        id: getRequestCount_returnsCorrectCount
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: getRequestCount_returnsCorrectCount
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorTest#getRequestCount_returnsCorrectCount
+          timeout: 1
+          max-score: 10
+
+      - name: Test multipleWorkloadMonitors_uniqueQueueForEachMonitor
+        id: multipleWorkloadMonitors_uniqueQueueForEachMonitor
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: multipleWorkloadMonitors_uniqueQueueForEachMonitor
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorTest#multipleWorkloadMonitors_uniqueQueueForEachMonitor
+          timeout: 1
+          max-score: 15
+
+      - name: Test getAverageProcessingTime_correctAverageTime
+        id: getAverageProcessingTime_correctAverageTime
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: getAverageProcessingTime_correctAverageTime
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorTest#getAverageProcessingTime_correctAverageTime
+          timeout: 1
+          max-score: 20
+
+      - name: Test getWorkerCount_returnsCorrectCount
+        id: getWorkerCount_returnsCorrectCount
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: getWorkerCount_returnsCorrectCount
+          setup-command: ''
+          command: mvn test -Pass3-messaging -Dtest=dst.ass3.messaging.tests.WorkloadMonitorTest#getWorkerCount_returnsCorrectCount
+          timeout: 1
+          max-score: 10
+
+      - name: Test t00_dockerBuild_imageAvailable
+        id: t00_dockerBuild_imageAvailable
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t00_dockerBuild_imageAvailable
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t00_dockerBuild_imageAvailable
+          timeout: 1
+          max-score: 10
+
+      - name: Test t01_startViennaWorker_findDriver_andRemoveFromRedis
+        id: t01_startViennaWorker_findDriver_andRemoveFromRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t01_startViennaWorker_findDriver_andRemoveFromRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t01_startViennaWorker_findDriver_andRemoveFromRedis
+          timeout: 1
+          max-score: 8
+
+      - name: Test t02_startViennaWorker_onEmptyRedis
+        id: t02_startViennaWorker_onEmptyRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t02_startViennaWorker_onEmptyRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t02_startViennaWorker_onEmptyRedis
+          timeout: 1
+          max-score: 8
+
+      - name: Test t03_startLinzWorker_findDriver_andRemoveFromRedis
+        id: t03_startLinzWorker_findDriver_andRemoveFromRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t03_startLinzWorker_findDriver_andRemoveFromRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t03_startLinzWorker_findDriver_andRemoveFromRedis
+          timeout: 1
+          max-score: 8
+
+      - name: Test t04_startLinzWorker_onEmptyRedis
+        id: t04_startLinzWorker_onEmptyRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t04_startLinzWorker_onEmptyRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t04_startLinzWorker_onEmptyRedis
+          timeout: 1
+          max-score: 8
+
+      - name: Test t05_startBerlinWorker_findDriver_andRemoveFromRedis
+        id: t05_startBerlinWorker_findDriver_andRemoveFromRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t05_startBerlinWorker_findDriver_andRemoveFromRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t05_startBerlinWorker_findDriver_andRemoveFromRedis
+          timeout: 1
+          max-score: 8
+
+      - name: Test t06_startBerlinWorker_onEmptyRedis
+        id: t06_startBerlinWorker_onEmptyRedis
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: t06_startBerlinWorker_onEmptyRedis
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerTest#t06_startBerlinWorker_onEmptyRedis
+          timeout: 1
+          max-score: 10
+
+      - name: Test testShouldRunPipInstallCommands
+        id: testShouldRunPipInstallCommands
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testShouldRunPipInstallCommands
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.DockerImageTest#testShouldRunPipInstallCommands
+          timeout: 1
+          max-score: 5
+
+      - name: Test testScriptAsEntrypoint
+        id: testScriptAsEntrypoint
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testScriptAsEntrypoint
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.DockerImageTest#testScriptAsEntrypoint
+          timeout: 1
+          max-score: 5
+
+      - name: Test testDockerfileHasCorrectBaseImage
+        id: testDockerfileHasCorrectBaseImage
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testDockerfileHasCorrectBaseImage
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.DockerImageTest#testDockerfileHasCorrectBaseImage
+          timeout: 1
+          max-score: 5
+
+      - name: Test testSignalHandling
+        id: testSignalHandling
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testSignalHandling
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerSignalTest#testSignalHandling
+          timeout: 1
+          max-score: 5
+
+      - name: Test testRegionLog
+        id: testRegionLog
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testRegionLog
+          setup-command: ''
+          command: mvn test -Pass3-worker -Dtest=dst.ass3.worker.tests.WorkerStartupLogTest#testRegionLog
+          timeout: 1
+          max-score: 5
+
+      - name: Test spawnListStop_lifecycleWorks
+        id: spawnListStop_lifecycleWorks
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: spawnListStop_lifecycleWorks
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ContainerServiceTest#spawnListStop_lifecycleWorks
+          timeout: 1
+          max-score: 30
+
+      - name: Test stopNonExistingContainer_throwsException
+        id: stopNonExistingContainer_throwsException
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: stopNonExistingContainer_throwsException
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ContainerServiceTest#stopNonExistingContainer_throwsException
+          timeout: 1
+          max-score: 5
+
+      - name: Test listContainers_containsCompleteInfo
+        id: listContainers_containsCompleteInfo
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: listContainers_containsCompleteInfo
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ContainerServiceTest#listContainers_containsCompleteInfo
+          timeout: 1
+          max-score: 20
+
+      - name: Test testListContainersCallsDockerClient
+        id: testListContainersCallsDockerClient
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testListContainersCallsDockerClient
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.DockerClientTest#testListContainersCallsDockerClient
+          timeout: 1
+          max-score: 10
+
+      - name: Test notEnoughWorkers_scaleUp
+        id: notEnoughWorkers_scaleUp
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: notEnoughWorkers_scaleUp
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ElasticityControllerTest#notEnoughWorkers_scaleUp
+          timeout: 1
+          max-score: 10
+
+      - name: Test tooManyWorkers_scaleDown
+        id: tooManyWorkers_scaleDown
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: tooManyWorkers_scaleDown
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ElasticityControllerTest#tooManyWorkers_scaleDown
+          timeout: 1
+          max-score: 20
+
+      - name: Test justEnoughWorkers_doNotScale
+        id: justEnoughWorkers_doNotScale
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: justEnoughWorkers_doNotScale
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.ElasticityControllerTest#justEnoughWorkers_doNotScale
+          timeout: 1
+          max-score: 10
+
+      - name: Test testCalculateWorkerAdjustment_basic
+        id: testCalculateWorkerAdjustment_basic
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testCalculateWorkerAdjustment_basic
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.WorkerAdjustmentTest#testCalculateWorkerAdjustment_basic
+          timeout: 1
+          max-score: 5
+
+      - name: Test testCalculateWorkerAdjustment_zeroRequests
+        id: testCalculateWorkerAdjustment_zeroRequests
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: testCalculateWorkerAdjustment_zeroRequests
+          setup-command: ''
+          command: mvn test -Pass3-elastic -Dtest=dst.ass3.elastic.tests.WorkerAdjustmentTest#testCalculateWorkerAdjustment_zeroRequests
+          timeout: 1
+          max-score: 5
+
+      - name: Test open_shouldConnectToSubscriber
+        id: open_shouldConnectToSubscriber
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: open_shouldConnectToSubscriber
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_1Test#open_shouldConnectToSubscriber
+          timeout: 1
+          max-score: 5
+
+      - name: Test run_shouldCollectPublishedEvents
+        id: run_shouldCollectPublishedEvents
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: run_shouldCollectPublishedEvents
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_1Test#run_shouldCollectPublishedEvents
+          timeout: 1
+          max-score: 5
+
+      - name: Test shouldBeSerializable
+        id: shouldBeSerializable
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: shouldBeSerializable
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_1Test#shouldBeSerializable
+          timeout: 1
+          max-score: 5
+
+      - name: Test lifecycleEventStream_worksCorrectly
+        id: lifecycleEventStream_worksCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: lifecycleEventStream_worksCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_2Test#lifecycleEventStream_worksCorrectly
+          timeout: 1
+          max-score: 20
+
+      - name: Test matchingDurations_areCalculatedCorrectly
+        id: matchingDurations_areCalculatedCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: matchingDurations_areCalculatedCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_3Test#matchingDurations_areCalculatedCorrectly
+          timeout: 1
+          max-score: 15
+
+      - name: Test durationsWithInterleavedEvents_areCalculatedCorrectly
+        id: durationsWithInterleavedEvents_areCalculatedCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: durationsWithInterleavedEvents_areCalculatedCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_3Test#durationsWithInterleavedEvents_areCalculatedCorrectly
+          timeout: 1
+          max-score: 10
+
+      - name: Test timeoutWarnings_areEmittedCorrectly
+        id: timeoutWarnings_areEmittedCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: timeoutWarnings_areEmittedCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_3Test#timeoutWarnings_areEmittedCorrectly
+          timeout: 1
+          max-score: 10
+
+      - name: Test tripFailedWarnings_areEmittedCorrectly
+        id: tripFailedWarnings_areEmittedCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: tripFailedWarnings_areEmittedCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_3Test#tripFailedWarnings_areEmittedCorrectly
+          timeout: 1
+          max-score: 10
+
+      - name: Test multipleTripFailures_triggerAlert
+        id: multipleTripFailures_triggerAlert
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: multipleTripFailures_triggerAlert
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_4Test#multipleTripFailures_triggerAlert
+          timeout: 1
+          max-score: 20
+
+      - name: Test matchingFailuresAndTimeouts_triggerAlert
+        id: matchingFailuresAndTimeouts_triggerAlert
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: matchingFailuresAndTimeouts_triggerAlert
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_4Test#matchingFailuresAndTimeouts_triggerAlert
+          timeout: 1
+          max-score: 20
+
+      - name: Test averageMatchingDurationWindow_worksCorrectly
+        id: averageMatchingDurationWindow_worksCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: averageMatchingDurationWindow_worksCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_4Test#averageMatchingDurationWindow_worksCorrectly
+          timeout: 1
+          max-score: 20
+
+      - name: Test averageMatchingDurations_areCalculatedCorrectly
+        id: averageMatchingDurations_areCalculatedCorrectly
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: averageMatchingDurations_areCalculatedCorrectly
+          setup-command: ''
+          command: mvn test -Pass3-event -Dtest=dst.ass3.event.tests.Ass3_3_4Test#averageMatchingDurations_areCalculatedCorrectly
+          timeout: 1
+          max-score: 10
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        env:
+          SETUP_CREATESQUEUES_RESULTS: ${{steps.setUp_createsQueues.outputs.result}}
+          SETUP_CREATESEXCHANGE_RESULTS: ${{steps.setUp_createsExchange.outputs.result}}
+          TEARDOWN_REMOVESQUEUES_RESULTS: ${{steps.tearDown_removesQueues.outputs.result}}
+          TEARDOWN_REMOVESEXCHANGE_RESULTS: ${{steps.tearDown_removesExchange.outputs.result}}
+          TESTCONNECTSTORABBITMQ_RESULTS: ${{steps.testConnectsToRabbitMQ.outputs.result}}
+          SUBMITREQUEST_ROUTESREQUESTSTOCORRECTQUEUES_RESULTS: ${{steps.submitRequest_routesRequestsToCorrectQueues.outputs.result}}
+          SUBMITREQUEST_SERIALIZESINTOJSONFORMAT_RESULTS: ${{steps.submitRequest_serializesIntoJsonFormat.outputs.result}}
+          TESTHTTPCLIENTISUSEDFORQUEUEINFO_RESULTS: ${{steps.testHttpClientIsUsedForQueueInfo.outputs.result}}
+          TESTSUBSCRIBEREGISTERSCONSUMERS_RESULTS: ${{steps.testSubscribeRegistersConsumers.outputs.result}}
+          TESTQUEUESAREBOUNDTOTOPICEXCHANGEWITHCORRECTROUTINGKEYS_RESULTS: ${{steps.testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys.outputs.result}}
+          GETREQUESTCOUNT_RETURNSCORRECTCOUNT_RESULTS: ${{steps.getRequestCount_returnsCorrectCount.outputs.result}}
+          MULTIPLEWORKLOADMONITORS_UNIQUEQUEUEFOREACHMONITOR_RESULTS: ${{steps.multipleWorkloadMonitors_uniqueQueueForEachMonitor.outputs.result}}
+          GETAVERAGEPROCESSINGTIME_CORRECTAVERAGETIME_RESULTS: ${{steps.getAverageProcessingTime_correctAverageTime.outputs.result}}
+          GETWORKERCOUNT_RETURNSCORRECTCOUNT_RESULTS: ${{steps.getWorkerCount_returnsCorrectCount.outputs.result}}
+          T00_DOCKERBUILD_IMAGEAVAILABLE_RESULTS: ${{steps.t00_dockerBuild_imageAvailable.outputs.result}}
+          T01_STARTVIENNAWORKER_FINDDRIVER_ANDREMOVEFROMREDIS_RESULTS: ${{steps.t01_startViennaWorker_findDriver_andRemoveFromRedis.outputs.result}}
+          T02_STARTVIENNAWORKER_ONEMPTYREDIS_RESULTS: ${{steps.t02_startViennaWorker_onEmptyRedis.outputs.result}}
+          T03_STARTLINZWORKER_FINDDRIVER_ANDREMOVEFROMREDIS_RESULTS: ${{steps.t03_startLinzWorker_findDriver_andRemoveFromRedis.outputs.result}}
+          T04_STARTLINZWORKER_ONEMPTYREDIS_RESULTS: ${{steps.t04_startLinzWorker_onEmptyRedis.outputs.result}}
+          T05_STARTBERLINWORKER_FINDDRIVER_ANDREMOVEFROMREDIS_RESULTS: ${{steps.t05_startBerlinWorker_findDriver_andRemoveFromRedis.outputs.result}}
+          T06_STARTBERLINWORKER_ONEMPTYREDIS_RESULTS: ${{steps.t06_startBerlinWorker_onEmptyRedis.outputs.result}}
+          TESTSHOULDRUNPIPINSTALLCOMMANDS_RESULTS: ${{steps.testShouldRunPipInstallCommands.outputs.result}}
+          TESTSCRIPTASENTRYPOINT_RESULTS: ${{steps.testScriptAsEntrypoint.outputs.result}}
+          TESTDOCKERFILEHASCORRECTBASEIMAGE_RESULTS: ${{steps.testDockerfileHasCorrectBaseImage.outputs.result}}
+          TESTSIGNALHANDLING_RESULTS: ${{steps.testSignalHandling.outputs.result}}
+          TESTREGIONLOG_RESULTS: ${{steps.testRegionLog.outputs.result}}
+          SPAWNLISTSTOP_LIFECYCLEWORKS_RESULTS: ${{steps.spawnListStop_lifecycleWorks.outputs.result}}
+          STOPNONEXISTINGCONTAINER_THROWSEXCEPTION_RESULTS: ${{steps.stopNonExistingContainer_throwsException.outputs.result}}
+          LISTCONTAINERS_CONTAINSCOMPLETEINFO_RESULTS: ${{steps.listContainers_containsCompleteInfo.outputs.result}}
+          TESTLISTCONTAINERSCALLSDOCKERCLIENT_RESULTS: ${{steps.testListContainersCallsDockerClient.outputs.result}}
+          NOTENOUGHWORKERS_SCALEUP_RESULTS: ${{steps.notEnoughWorkers_scaleUp.outputs.result}}
+          TOOMANYWORKERS_SCALEDOWN_RESULTS: ${{steps.tooManyWorkers_scaleDown.outputs.result}}
+          JUSTENOUGHWORKERS_DONOTSCALE_RESULTS: ${{steps.justEnoughWorkers_doNotScale.outputs.result}}
+          TESTCALCULATEWORKERADJUSTMENT_BASIC_RESULTS: ${{steps.testCalculateWorkerAdjustment_basic.outputs.result}}
+          TESTCALCULATEWORKERADJUSTMENT_ZEROREQUESTS_RESULTS: ${{steps.testCalculateWorkerAdjustment_zeroRequests.outputs.result}}
+          OPEN_SHOULDCONNECTTOSUBSCRIBER_RESULTS: ${{steps.open_shouldConnectToSubscriber.outputs.result}}
+          RUN_SHOULDCOLLECTPUBLISHEDEVENTS_RESULTS: ${{steps.run_shouldCollectPublishedEvents.outputs.result}}
+          SHOULDBESERIALIZABLE_RESULTS: ${{steps.shouldBeSerializable.outputs.result}}
+          LIFECYCLEEVENTSTREAM_WORKSCORRECTLY_RESULTS: ${{steps.lifecycleEventStream_worksCorrectly.outputs.result}}
+          MATCHINGDURATIONS_ARECALCULATEDCORRECTLY_RESULTS: ${{steps.matchingDurations_areCalculatedCorrectly.outputs.result}}
+          DURATIONSWITHINTERLEAVEDEVENTS_ARECALCULATEDCORRECTLY_RESULTS: ${{steps.durationsWithInterleavedEvents_areCalculatedCorrectly.outputs.result}}
+          TIMEOUTWARNINGS_AREEMITTEDCORRECTLY_RESULTS: ${{steps.timeoutWarnings_areEmittedCorrectly.outputs.result}}
+          TRIPFAILEDWARNINGS_AREEMITTEDCORRECTLY_RESULTS: ${{steps.tripFailedWarnings_areEmittedCorrectly.outputs.result}}
+          MULTIPLETRIPFAILURES_TRIGGERALERT_RESULTS: ${{steps.multipleTripFailures_triggerAlert.outputs.result}}
+          MATCHINGFAILURESANDTIMEOUTS_TRIGGERALERT_RESULTS: ${{steps.matchingFailuresAndTimeouts_triggerAlert.outputs.result}}
+          AVERAGEMATCHINGDURATIONWINDOW_WORKSCORRECTLY_RESULTS: ${{steps.averageMatchingDurationWindow_worksCorrectly.outputs.result}}
+          AVERAGEMATCHINGDURATIONS_ARECALCULATEDCORRECTLY_RESULTS: ${{steps.averageMatchingDurations_areCalculatedCorrectly.outputs.result}}
+        with:
+          runners: setUp_createsQueues,setUp_createsExchange,tearDown_removesQueues,tearDown_removesExchange,testConnectsToRabbitMQ,submitRequest_routesRequestsToCorrectQueues,submitRequest_serializesIntoJsonFormat,testHttpClientIsUsedForQueueInfo,testSubscribeRegistersConsumers,testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys,getRequestCount_returnsCorrectCount,multipleWorkloadMonitors_uniqueQueueForEachMonitor,getAverageProcessingTime_correctAverageTime,getWorkerCount_returnsCorrectCount,t00_dockerBuild_imageAvailable,t01_startViennaWorker_findDriver_andRemoveFromRedis,t02_startViennaWorker_onEmptyRedis,t03_startLinzWorker_findDriver_andRemoveFromRedis,t04_startLinzWorker_onEmptyRedis,t05_startBerlinWorker_findDriver_andRemoveFromRedis,t06_startBerlinWorker_onEmptyRedis,testShouldRunPipInstallCommands,testScriptAsEntrypoint,testDockerfileHasCorrectBaseImage,testSignalHandling,testRegionLog,spawnListStop_lifecycleWorks,stopNonExistingContainer_throwsException,listContainers_containsCompleteInfo,testListContainersCallsDockerClient,notEnoughWorkers_scaleUp,tooManyWorkers_scaleDown,justEnoughWorkers_doNotScale,testCalculateWorkerAdjustment_basic,testCalculateWorkerAdjustment_zeroRequests,open_shouldConnectToSubscriber,run_shouldCollectPublishedEvents,shouldBeSerializable,lifecycleEventStream_worksCorrectly,matchingDurations_areCalculatedCorrectly,durationsWithInterleavedEvents_areCalculatedCorrectly,timeoutWarnings_areEmittedCorrectly,tripFailedWarnings_areEmittedCorrectly,multipleTripFailures_triggerAlert,matchingFailuresAndTimeouts_triggerAlert,averageMatchingDurationWindow_worksCorrectly,averageMatchingDurations_areCalculatedCorrectly
+
+      - name: Clean up docker containers
+        run: docker compose -f docker/docker-compose.yml down --volumes
