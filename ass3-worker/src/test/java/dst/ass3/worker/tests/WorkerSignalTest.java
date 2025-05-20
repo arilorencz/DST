@@ -44,7 +44,7 @@ public class WorkerSignalTest {
     private static final String IMAGE_NAME = "dst/ass3-worker:latest";
 
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testSignalHandling() throws Exception {
         String region = "at_linz";

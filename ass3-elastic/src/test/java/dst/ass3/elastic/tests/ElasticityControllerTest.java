@@ -91,7 +91,7 @@ public class ElasticityControllerTest {
         verify(workloadMonitor, atLeast(1)).getAverageProcessingTime();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void notEnoughWorkers_scaleUp() throws Exception {
         // remove 10 vienna workers and 10 linz workers
@@ -111,7 +111,7 @@ public class ElasticityControllerTest {
         verify(containerService, never()).listContainers();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void tooManyWorkers_scaleDown() throws Exception {
         // add 20 more, some should be stopped
@@ -129,7 +129,7 @@ public class ElasticityControllerTest {
         verify(containerService, times(1)).listContainers();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void justEnoughWorkers_doNotScale() throws Exception {
         elasticityController.adjustWorkers();

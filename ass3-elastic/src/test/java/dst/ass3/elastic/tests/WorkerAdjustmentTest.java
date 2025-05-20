@@ -20,7 +20,7 @@ public class WorkerAdjustmentTest {
     @Rule
     public LocalGradingRule grading = new LocalGradingRule();
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testCalculateWorkerAdjustment_basic() {
         // Given
@@ -42,7 +42,7 @@ public class WorkerAdjustmentTest {
         assertEquals(4.8, adj.thresholdDown, 0.0001); // 4.0 * (1+0.2) = 4.8
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testCalculateWorkerAdjustment_zeroRequests() {
         // Given

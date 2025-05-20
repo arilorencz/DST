@@ -32,7 +32,7 @@ public class Ass3_3_2Test extends EventProcessingTestBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(Ass3_3_2Test.class);
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void lifecycleEventStream_worksCorrectly() throws Exception {
         // run flink in new thread

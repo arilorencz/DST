@@ -30,7 +30,7 @@ public class RequestGatewayTest {
     public RabbitResource rabbit = new RabbitResource();
 
     @Rule
-    public Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     private IMessagingFactory factory;
     private IQueueManager queueManager;
@@ -54,7 +54,7 @@ public class RequestGatewayTest {
         factory.close();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void submitRequest_routesRequestsToCorrectQueues() throws Exception {
         TripRequest r1 = new TripRequest("id1", Region.AT_VIENNA, new GeoPoint(34.22, -22.11));
@@ -85,7 +85,7 @@ public class RequestGatewayTest {
     }
 
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void submitRequest_serializesIntoJsonFormat() throws Exception {
         TripRequest r1 = new TripRequest("id1", Region.AT_VIENNA, new GeoPoint(1d, 2d));

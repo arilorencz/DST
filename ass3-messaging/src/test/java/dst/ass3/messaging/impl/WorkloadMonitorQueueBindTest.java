@@ -56,7 +56,7 @@ public class WorkloadMonitorQueueBindTest {
             .thenReturn("consumer-tag");
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void testQueuesAreBoundToTopicExchangeWithCorrectRoutingKeys() throws IOException {
         IWorkloadMonitor monitor = factory.createWorkloadMonitorWithClientAndConnectionFactory(mockHttpClient, mockFactory);

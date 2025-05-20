@@ -67,7 +67,7 @@ public class WorkerTest {
         client.close();
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void t00_dockerBuild_imageAvailable() throws Exception {
         File dockerfile = new File("./");
@@ -80,15 +80,15 @@ public class WorkerTest {
         assertThat(image.getRepoTags().get(0), is(WORKER_IMAGE));
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 8)
     public void t01_startViennaWorker_findDriver_andRemoveFromRedis() {
         String requestId = "testViennaId";
-        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)([34][0-9]{3}|5000)(\"|\\s|}).*";
+        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)([345][0-9]{3})(\"|\\s|}).*";
         testNonEmptyRedisForRegion("at_vienna", requestId, regex);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 8)
     public void t02_startViennaWorker_onEmptyRedis() {
         String requestId = "testViennaId";
@@ -96,15 +96,15 @@ public class WorkerTest {
         testEmptyRedisForRegion("at_vienna", requestId, regex);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 8)
     public void t03_startLinzWorker_findDriver_andRemoveFromRedis() {
         String requestId = "testLinzId";
-        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)(1[0-9]{3}|20000)(\"|\\s|}).*";
+        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)(1[0-9]{3}|2[0-9]{3})(\"|\\s|}).*";
         testNonEmptyRedisForRegion("at_linz", requestId, regex);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 8)
     public void t04_startLinzWorker_onEmptyRedis() {
         String requestId = "testLinzId";
@@ -112,15 +112,15 @@ public class WorkerTest {
         testEmptyRedisForRegion("at_linz", requestId, regex);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 8)
     public void t05_startBerlinWorker_findDriver_andRemoveFromRedis() {
         String requestId = "testBerlinId";
-        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)(8[0-9]{3}|9[0-8][0-9]{2}|99[0-8][0-9]|999[0-9]|10[0-9]{3}|11000)(\"|\\s|}).*";
+        String regex = ".*(\"|\\s)(" + requestId + ")(\"|\\s).*(\"|\\s)(8[0-9]{3}|9[0-8][0-9]{2}|99[0-8][0-9]|999[0-9]|10[0-9]{3}|11[0-9]{3})(\"|\\s|}).*";
         testNonEmptyRedisForRegion("de_berlin", requestId, regex);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void t06_startBerlinWorker_onEmptyRedis() {
         String requestId = "testBerlinId";

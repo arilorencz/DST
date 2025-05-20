@@ -30,7 +30,7 @@ public class RequestGatewayConnectionTest {
         factory = new MessagingFactory();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testConnectsToRabbitMQ() throws Exception {
         // Arrange

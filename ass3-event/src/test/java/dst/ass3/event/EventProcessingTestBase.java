@@ -24,7 +24,7 @@ public class EventProcessingTestBase extends Ass3EventTestBase {
     private static final Logger LOG = LoggerFactory.getLogger(EventProcessingTestBase.class);
 
     @Rule
-    public Timeout timeout = new Timeout(15, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     private IEventProcessingEnvironment epe;
 

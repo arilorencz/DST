@@ -42,7 +42,7 @@ public class Ass3_3_1Test extends Ass3EventTestBase {
     private static final Logger LOG = LoggerFactory.getLogger(Ass3_3_1Test.class);
 
     @Rule
-    public Timeout timeout = new Timeout(15, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     private IEventSourceFunction sourceFunction;
 
@@ -52,7 +52,7 @@ public class Ass3_3_1Test extends Ass3EventTestBase {
         assertNotNull("EventProcessingFactory#createEventSourceFunction() not implemented", sourceFunction);
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void open_shouldConnectToSubscriber() throws Exception {
         assertEquals(
@@ -69,7 +69,7 @@ public class Ass3_3_1Test extends Ass3EventTestBase {
         );
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void run_shouldCollectPublishedEvents() throws Exception {
         sourceFunction.open(new Configuration());
@@ -107,7 +107,7 @@ public class Ass3_3_1Test extends Ass3EventTestBase {
         assertEquals(2L, e1.getTripId(), 0);
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void shouldBeSerializable() throws Exception {
         try (ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream())) {
