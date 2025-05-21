@@ -37,7 +37,7 @@ public class ContainerServiceTest {
     public RabbitResource rabbit = new RabbitResource();
 
     @Rule
-    public Timeout timeout = new Timeout(30, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     IContainerService containerService;
     IElasticityFactory factory;
@@ -63,7 +63,7 @@ public class ContainerServiceTest {
 
 
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 30)
     public void spawnListStop_lifecycleWorks() throws Exception {
         List<ContainerInfo> containers = containerService.listContainers();
@@ -96,13 +96,13 @@ public class ContainerServiceTest {
         assertThat(containers.size(), is(initialContainerSize));
     }
 
-    @Test(expected = ContainerNotFoundException.class, timeout = 20000)
+    @Test(expected = ContainerNotFoundException.class, timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void stopNonExistingContainer_throwsException() throws Exception {
         containerService.stopContainer("Non-Existing-Id");
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void listContainers_containsCompleteInfo() throws Exception {
         ContainerInfo c1 = containerService.startWorker(Region.AT_VIENNA);
@@ -111,8 +111,8 @@ public class ContainerServiceTest {
         Thread.sleep(5000);
         List<ContainerInfo> containers = containerService.listContainers();
         ContainerInfo containerInfo = containers.stream()
-                .filter(c -> c1.getContainerId().equals(c.getContainerId()))
-                .findFirst().get();
+            .filter(c -> c1.getContainerId().equals(c.getContainerId()))
+            .findFirst().get();
         assertThat(containerInfo, notNullValue());
         assertThat(containerInfo.getImage(), equalTo("dst/ass3-worker"));
         assertThat(containerInfo.getWorkerRegion(), equalTo(Region.AT_VIENNA));

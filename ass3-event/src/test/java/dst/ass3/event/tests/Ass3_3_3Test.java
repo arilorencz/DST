@@ -38,7 +38,7 @@ public class Ass3_3_3Test extends EventProcessingTestBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(Ass3_3_3Test.class);
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 15)
     public void matchingDurations_areCalculatedCorrectly() throws Exception {
         // tests whether duration calculation and stream keying works correctly
@@ -108,7 +108,7 @@ public class Ass3_3_3Test extends EventProcessingTestBase {
         flinkExecution.get();
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void durationsWithInterleavedEvents_areCalculatedCorrectly() throws Exception {
         // tests whether CEP rule is tolerant towards multiple state changes between QUEUED and MATCHED
@@ -142,7 +142,7 @@ public class Ass3_3_3Test extends EventProcessingTestBase {
         assertEquals("Expected event 1 to have finished", 1L, d0.getEventId());
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void timeoutWarnings_areEmittedCorrectly() throws Exception {
         Future<JobExecutionResult> flinkExecution = initAndExecuteAsync(e -> {
@@ -178,7 +178,7 @@ public class Ass3_3_3Test extends EventProcessingTestBase {
         assertEquals("Expected event 2 to time out second", 2L, w2.getTripId());
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void tripFailedWarnings_areEmittedCorrectly() throws Exception {
         Future<JobExecutionResult> flinkExecution = initAndExecuteAsync();

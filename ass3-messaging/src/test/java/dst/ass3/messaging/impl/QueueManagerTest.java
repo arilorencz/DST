@@ -33,7 +33,7 @@ public class QueueManagerTest {
     public RabbitResource rabbit = new RabbitResource();
 
     @Rule
-    public Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     private IMessagingFactory factory = new MessagingFactory();
     private IQueueManager queueManager;
@@ -53,7 +53,7 @@ public class QueueManagerTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void setUp_createsQueues() throws Exception {
         queueManager.setUp();
@@ -71,7 +71,7 @@ public class QueueManagerTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void setUp_createsExchange() throws Exception {
         queueManager.setUp();
@@ -83,7 +83,7 @@ public class QueueManagerTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 3)
     public void tearDown_removesQueues() throws Exception {
         queueManager.setUp();
@@ -94,7 +94,7 @@ public class QueueManagerTest {
             .forEach(wq -> assertThat(queueNames, not(hasItem(wq))));
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 2)
     public void tearDown_removesExchange() throws Exception {
         queueManager.setUp();

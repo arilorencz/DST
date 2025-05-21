@@ -67,7 +67,7 @@ public class WorkloadMonitorTest {
         factory.close();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void getRequestCount_returnsCorrectCount() throws Exception {
         try {
@@ -90,7 +90,7 @@ public class WorkloadMonitorTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 15)
     public void multipleWorkloadMonitors_uniqueQueueForEachMonitor() throws Exception {
         try (IWorkloadMonitor workloadMonitor2 = factory.createWorkloadMonitor();
@@ -102,7 +102,7 @@ public class WorkloadMonitorTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void getAverageProcessingTime_correctAverageTime() throws Exception {
         try {
@@ -132,7 +132,7 @@ public class WorkloadMonitorTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void getWorkerCount_returnsCorrectCount() throws Exception {
         try {

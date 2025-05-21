@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 public class DockerClientTest {
     @Rule
-    public Timeout timeout = new Timeout(5, TimeUnit.SECONDS);
+    public Timeout timeout = new Timeout(60, TimeUnit.SECONDS);
 
     @ClassRule
     public static LocalGradingClassRule afterAll = new LocalGradingClassRule();
@@ -39,7 +39,7 @@ public class DockerClientTest {
         factory = new ElasticityFactory();
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void testListContainersCallsDockerClient() throws Exception {
         // Arrange

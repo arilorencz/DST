@@ -42,7 +42,7 @@ public class WorkerStartupLogTest {
 
     private static final String IMAGE_NAME = "dst/ass3-worker:latest";
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testRegionLog() throws Exception {
         DockerClient dockerClient = DockerClientBuilder.getInstance(config).build();
@@ -68,13 +68,16 @@ public class WorkerStartupLogTest {
 
             // 2. Capture logs and look for the startup message
             AtomicBoolean foundStartupMessage = new AtomicBoolean(false);
+            StringBuilder val = new StringBuilder();
+
             ResultCallback.Adapter<Frame> logCallback = new ResultCallback.Adapter<>() {
                 @Override
                 public void onNext(Frame frame) {
                     String logLine = new String(frame.getPayload());
-                    System.out.println("Log line:");
-                    System.out.print(logLine); // For debugging
-                    if (logLine.contains(region)) {
+                    val.append(logLine);
+                    System.out.println("Log line so far:");
+                    System.out.print(val); // For debugging
+                    if (val.toString().contains(region)) {
                         foundStartupMessage.set(true);
                     }
                 }

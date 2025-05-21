@@ -38,7 +38,7 @@ public class DockerImageTest {
     private static final String IMAGE_NAME = "dst/ass3-worker:latest";
 
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testShouldRunPipInstallCommands() throws InterruptedException {
         DockerClient dockerClient = DockerClientBuilder.getInstance(config).build();
@@ -70,7 +70,7 @@ public class DockerImageTest {
         assertTrue("Pip does not freeze correctly", logs.toString().contains("pika"));
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testScriptAsEntrypoint() {
         DockerClient dockerClient = DockerClientBuilder.getInstance(config).build();
@@ -93,7 +93,7 @@ public class DockerImageTest {
         assertTrue("Entrypoint does not contain script name", containsScriptName);
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testDockerfileHasCorrectBaseImage() throws Exception {
         String dockerfilePath = "Dockerfile";

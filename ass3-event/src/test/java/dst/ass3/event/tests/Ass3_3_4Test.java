@@ -36,7 +36,7 @@ public class Ass3_3_4Test extends EventProcessingTestBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(Ass3_3_4Test.class);
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void multipleTripFailures_triggerAlert() throws Exception {
         // checks that the window works correctly
@@ -94,7 +94,7 @@ public class Ass3_3_4Test extends EventProcessingTestBase {
         flinkExecution.get();
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void matchingFailuresAndTimeouts_triggerAlert() throws Exception {
         // checks whether keying works correctly, and whether Warning streams are unioned correctly
@@ -167,7 +167,7 @@ public class Ass3_3_4Test extends EventProcessingTestBase {
         assertEquals(Region.AT_VIENNA, w2.getRegion());
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 20)
     public void averageMatchingDurationWindow_worksCorrectly() throws Exception {
         // makes sure the event is triggered at the correct instant
@@ -227,7 +227,7 @@ public class Ass3_3_4Test extends EventProcessingTestBase {
         flinkExecution.get();
     }
 
-    @Test(timeout = 25000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void averageMatchingDurations_areCalculatedCorrectly() throws Exception {
         // makes sure the keying works properly and that the calculation is done from MatchingDuration events

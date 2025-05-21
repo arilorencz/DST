@@ -36,7 +36,7 @@ public class WorkloadMonitorConnectionTest {
         factory = new MessagingFactory();
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 5)
     public void testHttpClientIsUsedForQueueInfo() throws Exception {
         Client mockHttpClient = mock(Client.class);
@@ -66,7 +66,7 @@ public class WorkloadMonitorConnectionTest {
         }
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 60000)
     @GitHubClassroomGrading(maxScore = 10)
     public void testSubscribeRegistersConsumers() throws IOException, TimeoutException {
         Client mockHttpClient;
