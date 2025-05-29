@@ -9,9 +9,10 @@ public class SessionManagerFactory implements ISessionManagerFactory {
 
     @Override
     public ISessionManager createSessionManager(Properties properties) {
-        // TODO
         // read "redis.host" and "redis.port" from the properties
+        String host = (String) properties.get("redis.host");
+        int port = Integer.parseInt((String)properties.get("redis.port"));
 
-        return null;
+        return new SessionManager(host, port);
     }
 }

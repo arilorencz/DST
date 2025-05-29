@@ -14,67 +14,56 @@ public class DAOFactory implements IDAOFactory {
 
     @Override
     public IDriverDAO createDriverDAO() {
-        // TODO
-        return null;
+        return new DriverDAO(em);
     }
 
     @Override
     public IEmploymentDAO createEmploymentDAO() {
-        // TODO
-        return null;
+        return new EmploymentDAO(em);
     }
 
     @Override
     public ILocationDAO createLocationDAO() {
-        // TODO
-        return null;
+        return new LocationDAO(em);
     }
 
     @Override
     public IMatchDAO createMatchDAO() {
-        // TODO
-        return null;
+        return new MatchDAO(em);
     }
 
     @Override
     public IOrganizationDAO createOrganizationDAO() {
-        // TODO
-        return null;
+        return new OrganizationDAO(em);
     }
 
     @Override
     public IRiderDAO createRiderDAO() {
-        // TODO
-        return null;
+        return new RiderDAO(em);
     }
 
     @Override
     public ITripDAO createTripDAO() {
-        // TODO
-        return null;
+        return new TripDAO(em);
     }
 
     @Override
     public ITripInfoDAO createTripInfoDAO() {
-        // TODO
-        return null;
+        return new TripInfoDAO(em);
     }
 
     @Override
     public IVehicleDAO createVehicleDAO() {
-        // TODO
-        return null;
+        return new VehicleDAO(em);
     }
 
     @Override
     public ITripReceiptDAO createTripReceiptDAO() {
-        // TODO
-        return null;
+        return new TripReceiptDAO();
     }
 
     @Override
     public IPaymentInfoDAO createPaymentInfoDAO() {
-        // TODO
-        return null;
+        return new PaymentInfoDAO();
     }
 }

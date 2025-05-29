@@ -8,7 +8,8 @@ import java.lang.annotation.Target;
 /**
  * Marks a class to be container managed.
  */
-// TODO: add correct retention policy and target type
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
 public @interface Component {
 
     /**

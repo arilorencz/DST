@@ -8,7 +8,8 @@ import java.lang.annotation.Target;
 /**
  * Inject marks a field in a class to be autowired by the container.
  */
-// TODO: add correct retention policy and target type
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
 public @interface Inject {
 
     /**

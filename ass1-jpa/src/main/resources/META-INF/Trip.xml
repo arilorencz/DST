@@ -4,6 +4,50 @@
                  xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence/orm http://xmlns.jcp.org/xml/ns/persistence/orm_2_2.xsd"
                  version="2.2">
 
-    <!-- TODO -->
+    <entity class="dst.ass1.jpa.model.impl.Trip" name="Trip">
+        <table name="Trip"/>
+
+        <named-query name="findCompletedWithMinStops">
+            <query>
+                SELECT t FROM Trip t WHERE t.state = dst.ass1.jpa.model.TripState.COMPLETED AND SIZE(t.stops) > :minStops
+            </query>
+        </named-query>
+
+        <attributes>
+            <!-- Primary Key -->
+            <id name="id">
+                <generated-value strategy="IDENTITY"/>
+            </id>
+
+            <!-- Basic Fields -->
+            <basic name="created">
+                <temporal>TIMESTAMP</temporal>
+            </basic>
+            <basic name="updated">
+                <temporal>TIMESTAMP</temporal>
+            </basic>
+            <basic name="state">
+                <enumerated>STRING</enumerated>
+            </basic>
+
+            <!-- Many-to-One Relationships -->
+            <many-to-one name="pickup" target-entity="dst.ass1.jpa.model.impl.Location" optional="false"/>
+
+            <many-to-one name="destination" target-entity="dst.ass1.jpa.model.impl.Location" optional="false"/>
+
+            <many-to-one name="rider" target-entity="dst.ass1.jpa.model.impl.Rider"/>
+
+            <!-- One-to-One Relationships -->
+            <one-to-one name="tripInfo" target-entity="dst.ass1.jpa.model.impl.TripInfo"/>
+
+
+            <one-to-one name="match" target-entity="dst.ass1.jpa.model.impl.Match" mapped-by="trip" orphan-removal="true"/>
+
+            <!-- Many-to-Many Relationships -->
+            <many-to-many name="stops" target-entity="dst.ass1.jpa.model.impl.Location"/>
+
+        </attributes>
+
+    </entity>
 
 </entity-mappings>
