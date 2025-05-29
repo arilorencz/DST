@@ -3,8 +3,10 @@ package dst.ass3.elastic.impl;
 import dst.ass3.elastic.ContainerException;
 import dst.ass3.elastic.IContainerService;
 import dst.ass3.elastic.IElasticityController;
+import dst.ass3.messaging.Constants;
 import dst.ass3.messaging.IWorkloadMonitor;
 import dst.ass3.messaging.Region;
+import io.netty.util.Constant;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -65,9 +67,7 @@ public class ElasticityController implements IElasticityController {
     }
 
     private int getMaxWaitTime(Region region) {
-        return switch (region) {
-            case AT_LINZ, AT_VIENNA -> 30;
-            case DE_BERLIN -> 120;
-        };
+        if (region.equals(Region.AT_LINZ) || region.equals(Region.AT_VIENNA)) return 30;
+        return 120; //DE_BERLIN
     }
 }
