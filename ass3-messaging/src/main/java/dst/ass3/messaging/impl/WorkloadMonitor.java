@@ -114,14 +114,18 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
 
             // Start consuming messages
-            DeliverCallback callback = (consumerTag, delivery) -> {
-                String routingKey = delivery.getEnvelope().getRoutingKey();
-                String message = new String(delivery.getBody());
-                Region region = Region.valueOf(routingKey.split("\\.")[1].toUpperCase());
-                handleWorkerMessage(region, message);
+            Consumer consumer = new DefaultConsumer(amqpChannel) {
+                @Override
+                public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
+                        throws IOException {
+                    String routingKey = envelope.getRoutingKey();
+                    String message = new String(body);
+                    Region region = Region.valueOf(routingKey.split("\\.")[1].toUpperCase());
+                    handleWorkerMessage(region, message);
+                }
             };
 
-            amqpChannel.basicConsume(tempQueueName, true, callback, consumerTag -> {});
+            amqpChannel.basicConsume(tempQueueName, true, consumer);
 
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to subscribe to worker feedback topics", e);
