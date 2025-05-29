@@ -29,7 +29,8 @@ public class QueueManager implements IQueueManager {
 
             //declare queues and bind them to the exchange
             for (var queue : Constants.WORK_QUEUES) {
-                String routingKey = "requests." + queue.substring(3);
+                String regionSuffix = queue.split("\\.")[1];
+                String routingKey = "requests." + regionSuffix;
 
                 channel.queueDeclare(queue, true, false, false, null);
                 channel.queueBind(queue, Constants.TOPIC_EXCHANGE, routingKey);
