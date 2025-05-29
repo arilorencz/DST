@@ -48,28 +48,30 @@ public class WorkloadMonitor implements IWorkloadMonitor {
     @Override
     public Map<Region, Long> getRequestCount() {
         Map<Region, Long> result = new EnumMap<>(Region.class);
-
-        for (QueueInfo queue : httpClient.getQueues()) {
-            if (isWorkQueue(queue.getName())) {
-                Region region = regionFromQueue(queue.getName());
+        for (Region region : Region.values()) {
+            String queueName = "dst." + region.name().toLowerCase();
+            try {
+                QueueInfo queue = httpClient.getQueue("/", queueName);
                 result.put(region, queue.getMessagesReady());
+            } catch (Exception e) {
+                result.put(region, 0L); // fallback or log if needed
             }
         }
-
         return result;
     }
 
     @Override
     public Map<Region, Long> getWorkerCount() {
         Map<Region, Long> result = new EnumMap<>(Region.class);
-
-        for (QueueInfo queue : httpClient.getQueues()) {
-            if (isWorkQueue(queue.getName())) {
-                Region region = regionFromQueue(queue.getName());
+        for (Region region : Region.values()) {
+            String queueName = "dst." + region.name().toLowerCase();
+            try {
+                QueueInfo queue = httpClient.getQueue("/", queueName);
                 result.put(region, queue.getConsumerCount());
+            } catch (Exception e) {
+                result.put(region, 0L); // fallback or log if needed
             }
         }
-
         return result;
     }
 
