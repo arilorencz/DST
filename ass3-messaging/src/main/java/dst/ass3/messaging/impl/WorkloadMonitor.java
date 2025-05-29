@@ -98,6 +98,20 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     @Override
     public void subscribe() {
+        // Clean up leftover monitor queues from previous runs
+        if (httpClient != null && amqpChannel != null) {
+            List<QueueInfo> queues = httpClient.getQueues();
+            for (QueueInfo queue : queues) {
+                String qName = queue.getName();
+                if (!Arrays.asList(Constants.WORK_QUEUES).contains(qName) &&
+                        qName.startsWith("monitor.queue.")) {
+                    try {
+                        amqpChannel.queueDelete(qName, false, false);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
         try {
             amqpConnection = factory.newConnection();
             amqpChannel = amqpConnection.createChannel();
@@ -107,7 +121,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
             // Create a temporary, auto-delete queue
             String uniqueQueueName = "monitor.queue." + UUID.randomUUID();
-            amqpChannel.queueDeclare(uniqueQueueName, false, false, true, null);
+            amqpChannel.queueDeclare(uniqueQueueName, false, false, false, null); // durable=false, exclusive=false, autoDelete=false
             tempQueueName = uniqueQueueName;
 
             // Start consuming messages
@@ -183,9 +197,12 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             processingTimes.putIfAbsent(region, new LinkedList<>());
 
             LinkedList<Long> times = processingTimes.get(region);
-            times.add(response.getProcessingTime());
 
-            if (times.size() > 10) {
+            System.out.println("[" + region + "] Received processingTime = " + response.getProcessingTime());
+
+            times.addLast(response.getProcessingTime());
+
+            while (times.size() > 10) {
                 times.removeFirst();
             }
 
