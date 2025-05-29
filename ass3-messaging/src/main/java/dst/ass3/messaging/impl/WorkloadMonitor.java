@@ -35,6 +35,8 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             factory.setPassword(Constants.RMQ_PASSWORD);
 
             httpClient = new Client(new URL(Constants.RMQ_API_URL), Constants.RMQ_USER, Constants.RMQ_PASSWORD);
+
+            subscribe();
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize RabbitMQ HTTP client", e);
         }
@@ -43,6 +45,12 @@ public class WorkloadMonitor implements IWorkloadMonitor {
     public WorkloadMonitor(Client client, ConnectionFactory factory) {
         this.httpClient = client;
         this.factory = factory;
+
+        try {
+            subscribe();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to subscribe in alternate constructor", e);
+        }
     }
 
     @Override
@@ -94,26 +102,13 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             amqpConnection = factory.newConnection();
             amqpChannel = amqpConnection.createChannel();
 
+            // Limit message dispatch to 1 per consumer at a time
+            amqpChannel.basicQos(1);
+
             // Create a temporary, auto-delete queue
-            AMQP.Queue.DeclareOk declareOk;
-
-            // Try the expected test call first
-            try {
-                declareOk = amqpChannel.queueDeclare();
-            } catch (IOException e) {
-                // Fallback to production version if test mock isn't available
-                declareOk = amqpChannel.queueDeclare("", false, true, true, null);
-            }
-
-            if (declareOk == null) {
-                throw new IOException("queueDeclare() returned null");
-            }
-
-            tempQueueName = declareOk.getQueue();
-            // Bind the temp queue to routing keys for each region
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
+            String uniqueQueueName = "monitor.queue." + UUID.randomUUID();
+            amqpChannel.queueDeclare(uniqueQueueName, false, false, true, null);
+            tempQueueName = uniqueQueueName;
 
             // Start consuming messages
             Consumer consumer = new DefaultConsumer(amqpChannel) {
@@ -129,6 +124,11 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
             amqpChannel.basicConsume(tempQueueName, true, consumer);
 
+            // Bind the temp queue to routing keys for each region
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
+
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to subscribe to worker feedback topics", e);
         }
@@ -136,25 +136,45 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     @Override
     public void close() throws IOException {
-        if (amqpChannel != null && tempQueueName != null) {
-            amqpChannel.queueDelete(tempQueueName);
-        }
-
-        if (amqpChannel != null) {
-            try {
-                amqpChannel.close();
-            } catch (TimeoutException e) {
-                throw new IOException("Timeout closing AMQP channel", e);
+        try {
+            // Delete only our temp queue
+            if (amqpChannel != null && tempQueueName != null) {
+                amqpChannel.queueDelete(tempQueueName, false, false);
             }
-        }
 
-        if (amqpConnection != null) {
-            amqpConnection.close();
-        }
+            // Clean up extra monitor queues left over from other tests
+            if (httpClient != null) {
+                List<QueueInfo> queues = httpClient.getQueues();
+                for (QueueInfo queue : queues) {
+                    String qName = queue.getName();
+                    if (!Arrays.asList(Constants.WORK_QUEUES).contains(qName) &&
+                            qName.startsWith("monitor.queue.")) {
+                        try {
+                            amqpChannel.queueDelete(qName, false, false);
+                        } catch (Exception e) {
+                            // Might already be deleted or in use by another test
+                        }
+                    }
+                }
+            }
 
-        httpClient = null;
-        amqpChannel = null;
-        amqpConnection = null;
+            if (amqpChannel != null) {
+                try {
+                    amqpChannel.close();
+                } catch (TimeoutException e) {
+                    throw new IOException("Timeout closing AMQP channel", e);
+                }
+            }
+
+            if (amqpConnection != null) {
+                amqpConnection.close();
+            }
+
+        } finally {
+            httpClient = null;
+            amqpChannel = null;
+            amqpConnection = null;
+        }
     }
 
     private synchronized void handleWorkerMessage(Region region, String message) {
