@@ -21,15 +21,28 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     private Client httpClient;
     private Connection amqpConnection;
+    private ConnectionFactory factory;
     private Channel amqpChannel;
     private String tempQueueName;
 
     public WorkloadMonitor() {
         try {
+            // Set up AMQP connection
+            factory = new ConnectionFactory();
+            factory.setHost(Constants.RMQ_HOST);
+            factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
+            factory.setUsername(Constants.RMQ_USER);
+            factory.setPassword(Constants.RMQ_PASSWORD);
+
             httpClient = new Client(new URL(Constants.RMQ_API_URL), Constants.RMQ_USER, Constants.RMQ_PASSWORD);
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize RabbitMQ HTTP client", e);
         }
+    }
+
+    public WorkloadMonitor(Client client, ConnectionFactory factory) {
+        this.httpClient = client;
+        this.factory = factory;
     }
 
     @Override
@@ -76,13 +89,6 @@ public class WorkloadMonitor implements IWorkloadMonitor {
     @Override
     public void subscribe() {
         try {
-            // Set up AMQP connection
-            ConnectionFactory factory = new ConnectionFactory();
-            factory.setHost(Constants.RMQ_HOST);
-            factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
-            factory.setUsername(Constants.RMQ_USER);
-            factory.setPassword(Constants.RMQ_PASSWORD);
-
             amqpConnection = factory.newConnection();
             amqpChannel = amqpConnection.createChannel();
 

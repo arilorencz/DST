@@ -19,10 +19,11 @@ public class RequestGateway implements IRequestGateway {
     private Connection connection;
     private Channel channel;
     private ObjectMapper objectMapper;
+    private ConnectionFactory factory;
 
     public RequestGateway() {
         try {
-            ConnectionFactory factory = new ConnectionFactory();
+            factory = new ConnectionFactory();
             factory.setHost(Constants.RMQ_HOST);
             factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
             factory.setUsername(Constants.RMQ_USER);
@@ -38,6 +39,10 @@ public class RequestGateway implements IRequestGateway {
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
         }
+    }
+
+    public RequestGateway(ConnectionFactory factory) {
+        this.factory = factory;
     }
 
     @Override
