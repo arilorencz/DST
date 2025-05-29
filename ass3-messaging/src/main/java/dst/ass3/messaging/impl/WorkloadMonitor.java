@@ -26,41 +26,9 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     public WorkloadMonitor() {
         try {
-            // Initialize HTTP client for RabbitMQ
             httpClient = new Client(new URL(Constants.RMQ_API_URL), Constants.RMQ_USER, Constants.RMQ_PASSWORD);
-
-            // Set up AMQP connection
-            ConnectionFactory factory = new ConnectionFactory();
-            factory.setHost(Constants.RMQ_HOST);
-            factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
-            factory.setUsername(Constants.RMQ_USER);
-            factory.setPassword(Constants.RMQ_PASSWORD);
-
-            amqpConnection = factory.newConnection();
-            amqpChannel = amqpConnection.createChannel();
-
-            // Create a temporary, auto-deleting queue
-            tempQueueName = amqpChannel.queueDeclare("", false, true, true, null).getQueue();
-
-            // Bind to relevant routing keys
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
-            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
-
-            // Subscribe to worker messages
-            DeliverCallback callback = (consumerTag, delivery) -> {
-                String routingKey = delivery.getEnvelope().getRoutingKey();
-                String message = new String(delivery.getBody());
-
-                Region region = Region.valueOf(routingKey.split("\\.")[1].toUpperCase());
-                handleWorkerMessage(region, message);
-            };
-
-            amqpChannel.basicConsume(tempQueueName, true, callback, consumerTag -> {
-            });
-
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize WorkloadMonitor", e);
+            throw new RuntimeException("Failed to initialize RabbitMQ HTTP client", e);
         }
     }
 
@@ -107,12 +75,61 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     @Override
     public void subscribe() {
+        try {
+            // Set up AMQP connection
+            ConnectionFactory factory = new ConnectionFactory();
+            factory.setHost(Constants.RMQ_HOST);
+            factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
+            factory.setUsername(Constants.RMQ_USER);
+            factory.setPassword(Constants.RMQ_PASSWORD);
 
+            amqpConnection = factory.newConnection();
+            amqpChannel = amqpConnection.createChannel();
+
+            // Create a temporary, auto-delete queue
+            tempQueueName = amqpChannel.queueDeclare("", false, true, true, null).getQueue();
+
+            // Bind the temp queue to routing keys for each region
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
+            amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
+
+            // Start consuming messages
+            DeliverCallback callback = (consumerTag, delivery) -> {
+                String routingKey = delivery.getEnvelope().getRoutingKey();
+                String message = new String(delivery.getBody());
+                Region region = Region.valueOf(routingKey.split("\\.")[1].toUpperCase());
+                handleWorkerMessage(region, message);
+            };
+
+            amqpChannel.basicConsume(tempQueueName, true, callback, consumerTag -> {});
+
+        } catch (IOException | TimeoutException e) {
+            throw new RuntimeException("Failed to subscribe to worker feedback topics", e);
+        }
     }
 
     @Override
     public void close() throws IOException {
+        if (amqpChannel != null && tempQueueName != null) {
+            amqpChannel.queueDelete(tempQueueName);
+        }
 
+        if (amqpChannel != null) {
+            try {
+                amqpChannel.close();
+            } catch (TimeoutException e) {
+                throw new IOException("Timeout closing AMQP channel", e);
+            }
+        }
+
+        if (amqpConnection != null) {
+            amqpConnection.close();
+        }
+
+        httpClient = null;
+        amqpChannel = null;
+        amqpConnection = null;
     }
 
     private synchronized void handleWorkerMessage(Region region, String message) {
