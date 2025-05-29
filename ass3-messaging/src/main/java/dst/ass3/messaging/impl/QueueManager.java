@@ -25,11 +25,11 @@ public class QueueManager implements IQueueManager {
         try (Channel channel = getOrCreateConnection().createChannel()) {
 
             //declare the topic exchange
-            channel.exchangeDeclare(Constants.TOPIC_EXCHANGE, BuiltinExchangeType.TOPIC);
+            channel.exchangeDeclare(Constants.TOPIC_EXCHANGE, BuiltinExchangeType.TOPIC, true);
 
             //declare queues and bind them to the exchange
             for (var queue : Constants.WORK_QUEUES) {
-                String routingKey = "requests." + queue.substring(queue.indexOf('.'));
+                String routingKey = "requests." + queue.substring(3);
 
                 channel.queueDeclare(queue, true, false, false, null);
                 channel.queueBind(queue, Constants.TOPIC_EXCHANGE, routingKey);
