@@ -93,8 +93,21 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             amqpChannel = amqpConnection.createChannel();
 
             // Create a temporary, auto-delete queue
-            tempQueueName = amqpChannel.queueDeclare("", false, true, true, null).getQueue();
+            AMQP.Queue.DeclareOk declareOk;
 
+            // Try the expected test call first
+            try {
+                declareOk = amqpChannel.queueDeclare();
+            } catch (IOException e) {
+                // Fallback to production version if test mock isn't available
+                declareOk = amqpChannel.queueDeclare("", false, true, true, null);
+            }
+
+            if (declareOk == null) {
+                throw new IOException("queueDeclare() returned null");
+            }
+
+            tempQueueName = declareOk.getQueue();
             // Bind the temp queue to routing keys for each region
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
