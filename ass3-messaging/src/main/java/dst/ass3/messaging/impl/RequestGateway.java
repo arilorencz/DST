@@ -84,10 +84,15 @@ public class RequestGateway implements IRequestGateway {
     }
 
     private String getRoutingKeyForRegion(Region region) {
-        return switch (region) {
-            case AT_VIENNA -> Constants.ROUTING_KEY_AT_VIENNA;
-            case AT_LINZ -> Constants.ROUTING_KEY_AT_LINZ;
-            case DE_BERLIN -> Constants.ROUTING_KEY_DE_BERLIN;
-        };
+        switch (region) {
+            case AT_VIENNA:
+                return Constants.ROUTING_KEY_AT_VIENNA;
+            case AT_LINZ:
+                return Constants.ROUTING_KEY_AT_LINZ;
+            case DE_BERLIN:
+                return Constants.ROUTING_KEY_DE_BERLIN;
+            default:
+                throw new IllegalArgumentException("Unsupported region: " + region);
+        }
     }
 }
