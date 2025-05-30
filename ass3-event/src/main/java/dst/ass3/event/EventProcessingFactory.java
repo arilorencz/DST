@@ -1,16 +1,17 @@
 package dst.ass3.event;
 
+import dst.ass3.event.impl.EventProcessingEnvironment;
+import dst.ass3.event.impl.EventSourceFunction;
+
 /**
  * Creates your {@link IEventProcessingEnvironment} and {@link IEventSourceFunction} implementation instances.
  */
 public class EventProcessingFactory {
     public static IEventProcessingEnvironment createEventProcessingEnvironment() {
-        // TODO
-        return null;
+        return new EventProcessingEnvironment();
     }
 
     public static IEventSourceFunction createEventSourceFunction() {
-        // TODO
-        return null;
+        return new EventSourceFunction();
     }
 }
