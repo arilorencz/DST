@@ -9,6 +9,8 @@ import dst.ass3.event.model.events.*;
 import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.eventtime.WatermarkGenerator;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cep.CEP;
 import org.apache.flink.cep.PatternSelectFunction;
 import org.apache.flink.cep.PatternStream;
@@ -23,7 +25,9 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
+import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
@@ -50,7 +54,7 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
         EventSourceFunction source = new EventSourceFunction();
 
         WatermarkStrategy<LifecycleEvent> watermarkStrategy = WatermarkStrategy
-                .<LifecycleEvent>forBoundedOutOfOrderness(Duration.ofSeconds(20))
+                .<LifecycleEvent>forBoundedOutOfOrderness(Duration.ofSeconds(1))
                 .withTimestampAssigner((event, timestamp) -> event.getTimestamp());
 
         DataStream<LifecycleEvent> stream = env
@@ -130,6 +134,7 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
                     @Override
                     public MatchingTimeoutWarning timeout(Map<String, List<LifecycleEvent>> pattern, long timeoutTimestamp) throws Exception {
                         LifecycleEvent created = pattern.get("created").get(0);
+                        System.out.println(">>> Timeout triggered for trip " + pattern.get("created").get(0).getTripId());
                         return new MatchingTimeoutWarning(created.getTripId(), created.getRegion());
                     }
                 },
@@ -207,13 +212,50 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
                 anomalousPattern
         );
 
-        anomalousPatternStream.process(new PatternProcessFunction<LifecycleEvent, TripFailedWarning>() {
+        DataStream<TripFailedWarning> failedWarningStream = anomalousPatternStream.process(new PatternProcessFunction<LifecycleEvent, TripFailedWarning>() {
+            Set<Long> emittedTripIds;
+
+            @Override
+            public void open(Configuration parameters) throws Exception {
+                emittedTripIds = new HashSet<>();
+            }
+
             @Override
             public void processMatch(Map<String, List<LifecycleEvent>> anomalousPattern, Context ctx, Collector<TripFailedWarning> out) throws Exception {
                 LifecycleEvent created = anomalousPattern.get("created").get(0);
-                out.collect(new TripFailedWarning(created.getTripId(), created.getRegion()));
+                long tripId = created.getTripId();
+
+                if (!emittedTripIds.contains(tripId)) {
+                    out.collect(new TripFailedWarning(tripId, created.getRegion()));
+                    emittedTripIds.add(tripId);
+                }
             }
-        }).addSink(failedWarningSink);
+        });
+        failedWarningStream.addSink(failedWarningSink);
+
+        //alerts
+        // Merge the two streams that emit Warnings
+        DataStream<Warning> warnings = timeoutWarnings
+                .map((MapFunction<MatchingTimeoutWarning, Warning>) w -> (Warning) w, TypeInformation.of(Warning.class))
+                .union(
+                        failedWarningStream.map((MapFunction<TripFailedWarning, Warning>) w -> (Warning) w, TypeInformation.of(Warning.class))
+                );
+
+        // Key by region name (as String)
+        warnings
+                .keyBy(warning -> warning.getRegion().name())
+                .window(GlobalWindows.create())
+                .trigger(CountTrigger.of(3))
+                .process(new ProcessWindowFunction<Warning, Alert, String, GlobalWindow>() {
+                    @Override
+                    public void process(String regionName, Context context, Iterable<Warning> elements, Collector<Alert> out) {
+                        Region region = Region.valueOf(regionName);
+                        List<Warning> collectedWarnings = new java.util.ArrayList<>();
+                        elements.forEach(collectedWarnings::add);
+                        out.collect(new Alert(region, collectedWarnings));
+                    }
+                })
+                .addSink(alertSink);
 
 
         try {
