@@ -17,6 +17,7 @@ import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -28,8 +29,10 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.System.out;
 
@@ -95,16 +98,26 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
 
         // MATCHED timestamp result
         patternStream.process(new PatternProcessFunction<LifecycleEvent, MatchingDuration>() {
+            private transient Set<Long> emittedTripIds;
+
+            @Override
+            public void open(Configuration parameters) {
+                emittedTripIds = new HashSet<>();
+            }
             @Override
             public void processMatch(Map<String, List<LifecycleEvent>> pattern, Context context, Collector<MatchingDuration> out) throws Exception {
                 LifecycleEvent created = pattern.get("created").get(0);
                 LifecycleEvent matched = pattern.get("matched").get(0);
-                out.collect(new MatchingDuration(
-                        created.getTripId(),
-                        created.getRegion(),
-                        matched.getTimestamp() - created.getTimestamp()
+                long tripId = created.getTripId();
 
-                ));
+                if (!emittedTripIds.contains(tripId)) {
+                    out.collect(new MatchingDuration(
+                            tripId,
+                            created.getRegion(),
+                            matched.getTimestamp() - created.getTimestamp()
+                    ));
+                    emittedTripIds.add(tripId);
+                }
             }
         }).addSink(matchingDurationSink);
 
@@ -187,7 +200,7 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
                         return event.getState() == TripState.QUEUED;
                     }
                 })
-                .within(Time.minutes(1)); // what length of time should I choose here?
+                .within(matchingTimeout); // what length of time should I choose here?
 
         PatternStream<LifecycleEvent> anomalousPatternStream = CEP.pattern(
                 stream.keyBy(LifecycleEvent::getTripId),
