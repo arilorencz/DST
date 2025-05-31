@@ -18,16 +18,20 @@ import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+
+import static java.lang.System.out;
 
 public class EventProcessingEnvironment implements IEventProcessingEnvironment {
     private SinkFunction<LifecycleEvent> lifecycleSink;
@@ -40,13 +44,13 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
 
     @Override
     public void initialize(StreamExecutionEnvironment env) {
-        var source = new EventSourceFunction();
+        EventSourceFunction source = new EventSourceFunction();
 
-        var watermarkStrategy = WatermarkStrategy
+        WatermarkStrategy<LifecycleEvent> watermarkStrategy = WatermarkStrategy
                 .<LifecycleEvent>forBoundedOutOfOrderness(Duration.ofSeconds(20))
                 .withTimestampAssigner((event, timestamp) -> event.getTimestamp());
 
-        var stream = env
+        DataStream<LifecycleEvent> stream = env
                 .addSource(source)
                 // Filter all trips without a region
                 .filter(info -> info.getRegion() != null)
@@ -56,6 +60,147 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
 
         stream.addSink(lifecycleSink);
 
+        //pattern from created -> matched
+        Pattern<LifecycleEvent, ?> pattern = Pattern.<LifecycleEvent>begin("created")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.CREATED;
+                    }
+                })
+                .followedByAny("queued")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.QUEUED;
+                    }
+                })
+                .oneOrMore()
+                .optional()
+                .next("matched")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.MATCHED;
+                    }
+                })
+                .within(matchingTimeout)
+                ;
+
+
+        PatternStream<LifecycleEvent> patternStream = CEP.pattern(
+                stream.keyBy(LifecycleEvent::getTripId),
+                pattern
+        );
+
+        // MATCHED timestamp result
+        patternStream.process(new PatternProcessFunction<LifecycleEvent, MatchingDuration>() {
+            @Override
+            public void processMatch(Map<String, List<LifecycleEvent>> pattern, Context context, Collector<MatchingDuration> out) throws Exception {
+                LifecycleEvent created = pattern.get("created").get(0);
+                LifecycleEvent matched = pattern.get("matched").get(0);
+                out.collect(new MatchingDuration(
+                        created.getTripId(),
+                        created.getRegion(),
+                        matched.getTimestamp() - created.getTimestamp()
+
+                ));
+            }
+        }).addSink(matchingDurationSink);
+
+        //handle timeouts
+        OutputTag<MatchingTimeoutWarning> timeoutTag = new OutputTag<MatchingTimeoutWarning>("timeout-warning") {};
+
+        SingleOutputStreamOperator<MatchingDuration> resultStream = patternStream.select(
+                timeoutTag,
+                new PatternTimeoutFunction<LifecycleEvent, MatchingTimeoutWarning>() {
+                    @Override
+                    public MatchingTimeoutWarning timeout(Map<String, List<LifecycleEvent>> pattern, long timeoutTimestamp) throws Exception {
+                        LifecycleEvent created = pattern.get("created").get(0);
+                        return new MatchingTimeoutWarning(created.getTripId(), created.getRegion());
+                    }
+                },
+                new PatternSelectFunction<LifecycleEvent, MatchingDuration>() {
+                    @Override
+                    public MatchingDuration select(Map<String, List<LifecycleEvent>> pattern) throws Exception {
+                        LifecycleEvent created = pattern.get("created").get(0);
+                        LifecycleEvent matched = pattern.get("matched").get(0);
+                        return new MatchingDuration(
+                                created.getTripId(),
+                                created.getRegion(),
+                                matched.getTimestamp() - created.getTimestamp()
+                        );
+                    }
+                }
+        );
+
+        DataStream<MatchingTimeoutWarning> timeoutWarnings = resultStream.getSideOutput(timeoutTag);
+        timeoutWarnings.addSink(timeoutWarningSink);
+
+        //anomalous trip requests
+        Pattern<LifecycleEvent, ?> anomalousPattern = Pattern.<LifecycleEvent>begin("created")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.CREATED;
+                    }
+                })
+                .followedBy("mq1")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.MATCHED;
+                    }
+                })
+                .followedBy("qq1")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.QUEUED;
+                    }
+                })
+                .followedBy("mq2")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.MATCHED;
+                    }
+                })
+                .followedBy("qq2")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.QUEUED;
+                    }
+                })
+                .followedBy("mq3")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.MATCHED;
+                    }
+                })
+                .followedBy("qq3")
+                .where(new SimpleCondition<LifecycleEvent>() {
+                    @Override
+                    public boolean filter(LifecycleEvent event) {
+                        return event.getState() == TripState.QUEUED;
+                    }
+                })
+                .within(Time.minutes(1)); // what length of time should I choose here?
+
+        PatternStream<LifecycleEvent> anomalousPatternStream = CEP.pattern(
+                stream.keyBy(LifecycleEvent::getTripId),
+                anomalousPattern
+        );
+
+        anomalousPatternStream.process(new PatternProcessFunction<LifecycleEvent, TripFailedWarning>() {
+            @Override
+            public void processMatch(Map<String, List<LifecycleEvent>> anomalousPattern, Context ctx, Collector<TripFailedWarning> out) throws Exception {
+                LifecycleEvent created = anomalousPattern.get("created").get(0);
+                out.collect(new TripFailedWarning(created.getTripId(), created.getRegion()));
+            }
+        }).addSink(failedWarningSink);
 
 
         try {
