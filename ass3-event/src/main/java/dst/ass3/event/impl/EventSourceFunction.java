@@ -7,10 +7,10 @@ import dst.ass3.event.IEventSourceFunction;
 import dst.ass3.event.model.domain.ITripEventInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
+import org.apache.flink.streaming.api.watermark.Watermark;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EventSourceFunction extends RichSourceFunction<ITripEventInfo> implements IEventSourceFunction {
     private EventSubscriber subscriber;
@@ -42,12 +42,20 @@ public class EventSourceFunction extends RichSourceFunction<ITripEventInfo> impl
         isRunning = true;
         while (isRunning) {
             ITripEventInfo event = subscriber.receive();
-            if (event != null) {
-                ctx.collectWithTimestamp(event, event.getTimestamp());
-            } else {
+            if (event == null) {
                 isRunning = false;
+                System.out.println("EventSourceFunction: received null — shutting down");
                 break;
             }
+
+            synchronized (ctx.getCheckpointLock()) {
+                ctx.collectWithTimestamp(event, event.getTimestamp());
+            }
+        }
+
+        // 💡 Force all timeouts to fire
+        synchronized (ctx.getCheckpointLock()) {
+            ctx.emitWatermark(new Watermark(Long.MAX_VALUE));
         }
     }
 

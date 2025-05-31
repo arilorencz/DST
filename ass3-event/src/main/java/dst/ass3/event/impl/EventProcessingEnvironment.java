@@ -10,17 +10,21 @@ import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.eventtime.WatermarkGenerator;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.cep.CEP;
 import org.apache.flink.cep.PatternSelectFunction;
 import org.apache.flink.cep.PatternStream;
 import org.apache.flink.cep.PatternTimeoutFunction;
 import org.apache.flink.cep.functions.PatternProcessFunction;
+import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
@@ -28,15 +32,13 @@ import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
+import org.apache.flink.streaming.api.windowing.triggers.PurgingTrigger;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static java.lang.System.out;
 
@@ -234,29 +236,133 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
         failedWarningStream.addSink(failedWarningSink);
 
         //alerts
-        // Merge the two streams that emit Warnings
         DataStream<Warning> warnings = timeoutWarnings
-                .map((MapFunction<MatchingTimeoutWarning, Warning>) w -> (Warning) w, TypeInformation.of(Warning.class))
+                .map(w -> (Warning) w)
                 .union(
-                        failedWarningStream.map((MapFunction<TripFailedWarning, Warning>) w -> (Warning) w, TypeInformation.of(Warning.class))
+                        failedWarningStream.map(w -> (Warning) w)
                 );
 
+        KeyedStream<Warning, String> keyedWarnings = warnings
+                .keyBy(warning -> warning.getRegion().name());
+
+        AfterMatchSkipStrategy skipStrategy = AfterMatchSkipStrategy.skipPastLastEvent();
+
+
+        Pattern<Warning, ?> warningPattern = Pattern.<Warning>begin("first", skipStrategy)
+                .where(new SimpleCondition<Warning>() {
+                    @Override
+                    public boolean filter(Warning warning) {
+                        return true; // Accept all warnings
+                    }
+                })
+                .next("second")
+                .where(new SimpleCondition<Warning>() {
+                    @Override
+                    public boolean filter(Warning warning) {
+                        return true; // Accept all warnings
+                    }
+                })
+                .next("third")
+                .where(new SimpleCondition<Warning>() {
+                    @Override
+                    public boolean filter(Warning warning) {
+                        return true; // Accept all warnings
+                    }
+                });
+
+        PatternStream<Warning> warningPatternStream = CEP.pattern(keyedWarnings, warningPattern);
+
+        warningPatternStream.process(new PatternProcessFunction<Warning, Alert>() {
+            @Override
+            public void processMatch(Map<String, List<Warning>> pattern, Context ctx, Collector<Alert> out) {
+                List<Warning> first = pattern.get("first");
+                List<Warning> second = pattern.get("second");
+                List<Warning> third = pattern.get("third");
+
+                List<Warning> warnings = new ArrayList<>();
+                warnings.addAll(first);
+                warnings.addAll(second);
+                warnings.addAll(third);
+
+                Region region = warnings.get(0).getRegion(); // All warnings have the same region
+
+                out.collect(new Alert(region, warnings));
+            }
+        }).addSink(alertSink);
+
         // Key by region name (as String)
+        /*
         warnings
                 .keyBy(warning -> warning.getRegion().name())
                 .window(GlobalWindows.create())
-                .trigger(CountTrigger.of(3))
+                .trigger(PurgingTrigger.of(CountTrigger.of(3)))
                 .process(new ProcessWindowFunction<Warning, Alert, String, GlobalWindow>() {
+                    private transient ListState<Warning> warningState;
+
                     @Override
-                    public void process(String regionName, Context context, Iterable<Warning> elements, Collector<Alert> out) {
-                        Region region = Region.valueOf(regionName);
-                        List<Warning> collectedWarnings = new java.util.ArrayList<>();
-                        elements.forEach(collectedWarnings::add);
-                        out.collect(new Alert(region, collectedWarnings));
+                    public void open(Configuration parameters) {
+                        ListStateDescriptor<Warning> desc = new ListStateDescriptor<>(
+                                "warnings", TypeInformation.of(Warning.class));
+                        warningState = getRuntimeContext().getListState(desc);
+                    }
+
+                    @Override
+                    public void process(String key, Context context, Iterable<Warning> elements, Collector<Alert> out) {
+                        List<Warning> warnings = new ArrayList<>();
+
+                        Region region = Region.valueOf(key);
+
+                        elements.forEach(element -> {
+                            if (!warnings.contains(element)) {
+                                System.out.println("************************************");
+                                System.out.println("Added warning: " + element);
+                                warnings.add(element);
+                                System.out.println("************************************");
+                            }
+                        });
+
+                        // Trigger Alert if there are at least 3 warnings
+                        if (warnings.size() >= 3) {
+                            System.out.println("----------------------------------------");
+                            System.out.println("----------------------------------------");
+                            System.out.println("Alert triggered for region: ");
+                            System.out.println(region);
+                            System.out.println("warnings: length = " + warnings.size());
+                            System.out.println(warnings);
+                            System.out.println("----------------------------------------");
+                            System.out.println("----------------------------------------");
+                            out.collect(new Alert(region, warnings));
+                            warnings.clear();
+                        }
                     }
                 })
                 .addSink(alertSink);
 
+         */
+
+        //average matching duration
+        resultStream
+                .keyBy(md -> md.getRegion().name())
+                .window(GlobalWindows.create())
+                .trigger(CountTrigger.of(5))
+                .process(new ProcessWindowFunction<MatchingDuration, AverageMatchingDuration, String, GlobalWindow>() {
+                    @Override
+                    public void process(String regionName, Context context, Iterable<MatchingDuration> elements, Collector<AverageMatchingDuration> out) {
+                        int count = 0;
+                        long totalDuration = 0;
+                        for (MatchingDuration duration : elements) {
+                            totalDuration += duration.getDuration();
+                            count++;
+                        }
+
+                        if (count == 5) {
+                            double avg = (double) totalDuration / count;
+                            Region region = Region.valueOf(regionName);
+                            out.collect(new AverageMatchingDuration(region, avg));
+                        }
+                    }
+                })
+                .addSink(averageMatchingSink);
 
         try {
             String plan = env.getExecutionPlan();
