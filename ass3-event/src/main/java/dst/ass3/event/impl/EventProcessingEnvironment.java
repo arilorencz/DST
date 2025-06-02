@@ -8,6 +8,7 @@ import dst.ass3.event.model.domain.TripState;
 import dst.ass3.event.model.events.*;
 import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.eventtime.WatermarkGenerator;
+import org.apache.flink.api.common.eventtime.WatermarkOutput;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.ListState;
@@ -56,7 +57,7 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
         EventSourceFunction source = new EventSourceFunction();
 
         WatermarkStrategy<LifecycleEvent> watermarkStrategy = WatermarkStrategy
-                .<LifecycleEvent>forBoundedOutOfOrderness(Duration.ofSeconds(1))
+                .<LifecycleEvent>forGenerator(ctx -> new PunctuatedAssigner())
                 .withTimestampAssigner((event, timestamp) -> event.getTimestamp());
 
         DataStream<LifecycleEvent> stream = env
@@ -409,4 +410,17 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
     public void setAlertStreamSink(SinkFunction<Alert> sink) {
         this.alertSink = sink;
     }
+
+    private static class PunctuatedAssigner implements WatermarkGenerator<LifecycleEvent> {
+        @Override
+        public void onEvent(LifecycleEvent event, long l, WatermarkOutput output) {
+            output.emitWatermark(new Watermark(event.getTimestamp()));
+        }
+
+        @Override
+        public void onPeriodicEmit(WatermarkOutput watermarkOutput) {
+
+        }
+    }
+
 }
