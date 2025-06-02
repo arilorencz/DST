@@ -37,7 +37,8 @@ def get_sleep_time(region):
 def connect_to_rabbitmq():
     while not shutdown_event.is_set():
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host='docker-rabbitmq-1'))
+            credentials = pika.PlainCredentials('dst', 'dst')
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials))
             return connection
         except pika.exceptions.AMQPConnectionError:
             print("RabbitMQ connection failed, retrying in 5 seconds...")
