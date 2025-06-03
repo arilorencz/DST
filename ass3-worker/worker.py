@@ -7,7 +7,6 @@ import json
 import random
 import math
 from threading import Event
-from haversine import haversine, Unit
 
 shutdown_event = Event()
 
@@ -25,9 +24,12 @@ REGION_SLEEP = {
 }
 
 def haversine(lat1, lon1, lat2, lon2):
-    point1 = (lat1, lon1)
-    point2 = (lat2, lon2)
-    distance = haversine(point1, point2, unit=Unit.KILOMETERS)
+    R = 6371  # Earth radius in km
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
 
 def get_sleep_time(region):
     return random.randint(*REGION_SLEEP.get(region, (1, 2)))
@@ -36,7 +38,7 @@ def connect_to_rabbitmq():
     while not shutdown_event.is_set():
         try:
             credentials = pika.PlainCredentials('dst', 'dst')
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials=credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials))
             return connection
         except pika.exceptions.AMQPConnectionError:
             print("RabbitMQ connection failed, retrying in 5 seconds...")
@@ -49,7 +51,7 @@ def main(region):
 
     connection = connect_to_rabbitmq()
     channel = connection.channel()
-    channel.queue_declare(queue=f'dst.{region}', durable=True) #is durable needed or no?
+    channel.queue_declare(queue=f'dst.{region}', durable=True)
 
     def callback(ch, method, properties, body):
         request = json.loads(body)
@@ -71,7 +73,6 @@ def main(region):
         pickup_lat = pickup['latitude']
         pickup_lon = pickup['longitude']
 
-        #find the driver closest to the pickup location
         for driver_id, coord in drivers.items():
             lat, lon = map(float, coord.split())
             dist = haversine(lat, lon, pickup_lat, pickup_lon)
@@ -79,7 +80,7 @@ def main(region):
                 closest_driver = driver_id
                 closest_distance = dist
 
-        #trying to remove the selected driver
+        # Try to remove the selected driver
         if closest_driver:
             removed = redis_client.hdel(redis_key, closest_driver)
             if removed == 0:
@@ -89,7 +90,6 @@ def main(region):
 
         time.sleep(get_sleep_time(region))
 
-        #calc processing time + response
         processing_time = int((time.time() - start_time) * 1000)
         response = {"driverId": closest_driver, "processingTime": processing_time}
         channel.basic_publish(exchange='',
