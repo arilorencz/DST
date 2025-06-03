@@ -12,7 +12,7 @@ WORKDIR /app
 COPY worker.py .
 
 # Install required Python packages
-RUN pip install --no-cache-dir pika redis
+RUN pip install --no-cache-dir pika redis haversine
 
 # Command to run the worker
 ENTRYPOINT ["python", "worker.py"]

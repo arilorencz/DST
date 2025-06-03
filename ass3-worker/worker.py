@@ -36,7 +36,7 @@ def connect_to_rabbitmq():
     while not shutdown_event.is_set():
         try:
             credentials = pika.PlainCredentials('dst', 'dst')
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials=credentials))
             return connection
         except pika.exceptions.AMQPConnectionError:
             print("RabbitMQ connection failed, retrying in 5 seconds...")
@@ -49,7 +49,7 @@ def main(region):
 
     connection = connect_to_rabbitmq()
     channel = connection.channel()
-    channel.queue_declare(queue=f'dst.{region}', durable=True)
+    channel.queue_declare(queue=f'dst.{region}', durable=True) #is durable needed or no?
 
     def callback(ch, method, properties, body):
         request = json.loads(body)
@@ -71,6 +71,7 @@ def main(region):
         pickup_lat = pickup['latitude']
         pickup_lon = pickup['longitude']
 
+        #find the driver closest to the pickup location
         for driver_id, coord in drivers.items():
             lat, lon = map(float, coord.split())
             dist = haversine(lat, lon, pickup_lat, pickup_lon)
