@@ -38,7 +38,7 @@ def connect_to_rabbitmq():
     while not shutdown_event.is_set():
         try:
             credentials = pika.PlainCredentials('dst', 'dst')
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbit", port=5672, virtual_host='/', credentials=credentials))
             return connection
         except pika.exceptions.AMQPConnectionError:
             print("RabbitMQ connection failed, retrying in 5 seconds...")
