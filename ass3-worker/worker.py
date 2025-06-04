@@ -61,9 +61,9 @@ def main(region):
         drivers = redis_client.hgetall(redis_key)
 
         if not drivers:
-            response = {"driverId": "", "processingTime": 0}
+            response = {"id": "", "driverId": "", "processingTime": 0}
             channel.basic_publish(exchange='',
-                                  routing_key=f'done.{region}',
+                                  routing_key=f'requests.{region}',
                                   body=json.dumps(response))
             return
 
@@ -91,9 +91,13 @@ def main(region):
         time.sleep(get_sleep_time(region))
 
         processing_time = int((time.time() - start_time) * 1000)
-        response = {"driverId": closest_driver, "processingTime": processing_time}
+        response = {
+            "id": request["id"],
+            "driverId": closest_driver,
+            "processingTime": processing_time
+                    }
         channel.basic_publish(exchange='',
-                              routing_key=f'done.{region}',
+                              routing_key=f'requests.{region}',
                               body=json.dumps(response))
 
     channel.basic_consume(queue=f'dst.{region}', on_message_callback=callback, auto_ack=True)

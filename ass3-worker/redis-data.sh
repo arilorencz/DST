@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-redis-cli hmset drivers:at_vienna "1234" "48.19819 16.37127" "5678" "50.19819 20.37127"
+redis-cli hmset drivers:at_vienna \
+  "3456" "48.19819 16.37127" \
+  "5678" "50.19819 20.37127"
 
 # Make sure that all required resources are created and correctly configured
 # To test your implementation:
