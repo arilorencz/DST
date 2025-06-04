@@ -61,7 +61,11 @@ def main(region):
         drivers = redis_client.hgetall(redis_key)
 
         if not drivers:
-            response = {"id": "", "driverId": "", "processingTime": 0}
+            response = {
+                "id": request["id"],
+                "driverId": "",
+                "processingTime": 0
+                        }
             channel.basic_publish(exchange='',
                                   routing_key=f'requests.{region}',
                                   body=json.dumps(response))
