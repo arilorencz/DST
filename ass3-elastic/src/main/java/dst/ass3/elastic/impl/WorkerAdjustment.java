@@ -27,9 +27,17 @@ public class WorkerAdjustment {
         double averageProcessingTime,
         long maxTime,
         double scaleOutThresholdPercent,
-        double scaleDownThresholdPercent) {
-        // TODO
-        return null;
+        double scaleDownThresholdPercent)
+    {
+        if (requestCount == 0 || averageProcessingTime <= 0 || maxTime <= 0) {
+            return new WorkerAdjustment(0, 0, 0);
+        }
+
+        double targetWorkers = (requestCount * averageProcessingTime) / maxTime;
+        double scaleUpThreshold = targetWorkers * (1 + scaleOutThresholdPercent);
+        double scaleDownThreshold = targetWorkers * (1 - scaleDownThresholdPercent);
+
+        return new WorkerAdjustment(targetWorkers, scaleUpThreshold, scaleDownThreshold);
     }
 
 }

@@ -131,6 +131,7 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
         //handle timeouts
         OutputTag<MatchingTimeoutWarning> timeoutTag = new OutputTag<MatchingTimeoutWarning>("timeout-warning") {};
 
+        //todo fix timeout
         SingleOutputStreamOperator<MatchingDuration> resultStream = patternStream.select(
                 timeoutTag,
                 new PatternTimeoutFunction<LifecycleEvent, MatchingTimeoutWarning>() {
