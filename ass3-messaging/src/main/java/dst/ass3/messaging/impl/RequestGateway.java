@@ -32,9 +32,6 @@ public class RequestGateway implements IRequestGateway {
             this.connection = factory.newConnection();
             this.channel = connection.createChannel();
 
-            // Declare a topic exchange for worker routing
-            channel.exchangeDeclare(Constants.TOPIC_EXCHANGE, "topic", true);
-
             this.objectMapper = new ObjectMapper();
         } catch (IOException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize RabbitMQ connection", e);
@@ -44,16 +41,8 @@ public class RequestGateway implements IRequestGateway {
     public RequestGateway(ConnectionFactory factory) {
         try {
             this.factory = factory;
-            this.factory.setHost(Constants.RMQ_HOST);
-            this.factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
-            this.factory.setUsername(Constants.RMQ_USER);
-            this.factory.setPassword(Constants.RMQ_PASSWORD);
-            this.factory.setVirtualHost(Constants.RMQ_VHOST);
             this.connection = factory.newConnection();
             this.channel = connection.createChannel();
-
-            // Declare a topic exchange for worker routing
-            channel.exchangeDeclare(Constants.TOPIC_EXCHANGE, "topic", true);
 
             this.objectMapper = new ObjectMapper();
         } catch (IOException | TimeoutException e) {

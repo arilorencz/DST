@@ -27,7 +27,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     public WorkloadMonitor() {
         try {
-            // Set up AMQP connection
+            //set up AMQP connection
             factory = new ConnectionFactory();
             factory.setHost(Constants.RMQ_HOST);
             factory.setPort(Integer.parseInt(Constants.RMQ_PORT));
@@ -62,7 +62,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
                 QueueInfo queue = httpClient.getQueue("/", queueName);
                 result.put(region, queue.getMessagesReady());
             } catch (Exception e) {
-                result.put(region, 0L); // fallback or log if needed
+                result.put(region, 0L);
             }
         }
         return result;
@@ -77,7 +77,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
                 QueueInfo queue = httpClient.getQueue("/", queueName);
                 result.put(region, queue.getConsumerCount());
             } catch (Exception e) {
-                result.put(region, 0L); // fallback or log if needed
+                result.put(region, 0L);
             }
         }
         return result;
@@ -98,7 +98,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
     @Override
     public void subscribe() {
-        // Clean up leftover monitor queues from previous runs
+        //clean up leftover monitor queues from previous runs
         if (httpClient != null && amqpChannel != null) {
             List<QueueInfo> queues = httpClient.getQueues();
             for (QueueInfo queue : queues) {
@@ -116,15 +116,15 @@ public class WorkloadMonitor implements IWorkloadMonitor {
             amqpConnection = factory.newConnection();
             amqpChannel = amqpConnection.createChannel();
 
-            // Limit message dispatch to 1 per consumer at a time
+            //message dispatch limited to 1 per consumer at a time
             amqpChannel.basicQos(1);
 
-            // Create a temporary, auto-delete queue
+            //temporary, auto-delete queue
             String uniqueQueueName = "monitor.queue." + UUID.randomUUID();
             amqpChannel.queueDeclare(uniqueQueueName, false, false, false, null); // durable=false, exclusive=false, autoDelete=false
             tempQueueName = uniqueQueueName;
 
-            // Start consuming messages
+            //start consuming messages
             Consumer consumer = new DefaultConsumer(amqpChannel) {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
@@ -138,7 +138,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
 
             amqpChannel.basicConsume(tempQueueName, true, consumer);
 
-            // Bind the temp queue to routing keys for each region
+            //bind the temp queue to routing keys for each region
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_VIENNA);
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_AT_LINZ);
             amqpChannel.queueBind(tempQueueName, Constants.TOPIC_EXCHANGE, Constants.ROUTING_KEY_DE_BERLIN);
@@ -151,12 +151,12 @@ public class WorkloadMonitor implements IWorkloadMonitor {
     @Override
     public void close() throws IOException {
         try {
-            // Delete only our temp queue
+            //delete only own temp queue
             if (amqpChannel != null && tempQueueName != null) {
                 amqpChannel.queueDelete(tempQueueName, false, false);
             }
 
-            // Clean up extra monitor queues left over from other tests
+            //clean up extra monitor queues
             if (httpClient != null) {
                 List<QueueInfo> queues = httpClient.getQueues();
                 for (QueueInfo queue : queues) {
@@ -166,7 +166,7 @@ public class WorkloadMonitor implements IWorkloadMonitor {
                         try {
                             amqpChannel.queueDelete(qName, false, false);
                         } catch (Exception e) {
-                            // Might already be deleted or in use by another test
+                            //might already be deleted or in use by another test
                         }
                     }
                 }
