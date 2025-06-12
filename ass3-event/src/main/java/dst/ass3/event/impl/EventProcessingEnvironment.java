@@ -10,18 +10,15 @@ import org.apache.flink.api.common.eventtime.Watermark;
 import org.apache.flink.api.common.eventtime.WatermarkGenerator;
 import org.apache.flink.api.common.eventtime.WatermarkOutput;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.state.ListState;
-import org.apache.flink.api.common.state.ListStateDescriptor;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.cep.CEP;
 import org.apache.flink.cep.PatternSelectFunction;
 import org.apache.flink.cep.PatternStream;
 import org.apache.flink.cep.PatternTimeoutFunction;
 import org.apache.flink.cep.functions.PatternProcessFunction;
+import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
 import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.pattern.Pattern;
-import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -33,15 +30,12 @@ import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
-import org.apache.flink.streaming.api.windowing.triggers.PurgingTrigger;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
-import java.time.Duration;
 import java.util.*;
 
-import static java.lang.System.out;
 
 public class EventProcessingEnvironment implements IEventProcessingEnvironment {
     private SinkFunction<LifecycleEvent> lifecycleSink;
@@ -51,6 +45,8 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
     private SinkFunction<TripFailedWarning> failedWarningSink;
     private SinkFunction<Alert> alertSink;
     private Time matchingTimeout;
+    private static final OutputTag<MatchingTimeoutWarning> MATCHING_TIMEOUT_TAG = new OutputTag<MatchingTimeoutWarning>("timeout-warning") {};
+
 
     @Override
     public void initialize(StreamExecutionEnvironment env) {
@@ -75,23 +71,14 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
                 .where(new SimpleCondition<LifecycleEvent>() {
                     @Override
                     public boolean filter(LifecycleEvent event) {
-                        return event.getState() == TripState.CREATED;
+                        return event.getState().equals(TripState.CREATED);
                     }
                 })
-                .followedByAny("queued")
-                .where(new SimpleCondition<LifecycleEvent>() {
+                .followedBy("matched")
+                .where(new SimpleCondition<>() {
                     @Override
-                    public boolean filter(LifecycleEvent event) {
-                        return event.getState() == TripState.QUEUED;
-                    }
-                })
-                .oneOrMore()
-                .optional()
-                .next("matched")
-                .where(new SimpleCondition<LifecycleEvent>() {
-                    @Override
-                    public boolean filter(LifecycleEvent event) {
-                        return event.getState() == TripState.MATCHED;
+                    public boolean filter(LifecycleEvent value) throws Exception {
+                        return value.getState().equals(TripState.MATCHED);
                     }
                 })
                 .within(matchingTimeout)
@@ -99,65 +86,17 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
 
 
         PatternStream<LifecycleEvent> patternStream = CEP.pattern(
-                stream.keyBy(LifecycleEvent::getTripId),
+                stream.keyBy((KeySelector<LifecycleEvent, Long>) LifecycleEvent::getTripId),
                 pattern
         );
 
         // MATCHED timestamp result
-        patternStream.process(new PatternProcessFunction<LifecycleEvent, MatchingDuration>() {
-            private transient Set<Long> emittedTripIds;
+        SingleOutputStreamOperator<MatchingDuration> resultStream = patternStream.process(new MatchingDurationFunction());
+        resultStream.addSink(matchingDurationSink);
 
-            @Override
-            public void open(Configuration parameters) {
-                emittedTripIds = new HashSet<>();
-            }
-            @Override
-            public void processMatch(Map<String, List<LifecycleEvent>> pattern, Context context, Collector<MatchingDuration> out) throws Exception {
-                LifecycleEvent created = pattern.get("created").get(0);
-                LifecycleEvent matched = pattern.get("matched").get(0);
-                long tripId = created.getTripId();
-
-                if (!emittedTripIds.contains(tripId)) {
-                    out.collect(new MatchingDuration(
-                            tripId,
-                            created.getRegion(),
-                            matched.getTimestamp() - created.getTimestamp()
-                    ));
-                    emittedTripIds.add(tripId);
-                }
-            }
-        }).addSink(matchingDurationSink);
-
-        //handle timeouts
-        OutputTag<MatchingTimeoutWarning> timeoutTag = new OutputTag<MatchingTimeoutWarning>("timeout-warning") {};
-
-        //todo fix timeout
-        SingleOutputStreamOperator<MatchingDuration> resultStream = patternStream.select(
-                timeoutTag,
-                new PatternTimeoutFunction<LifecycleEvent, MatchingTimeoutWarning>() {
-                    @Override
-                    public MatchingTimeoutWarning timeout(Map<String, List<LifecycleEvent>> pattern, long timeoutTimestamp) throws Exception {
-                        LifecycleEvent created = pattern.get("created").get(0);
-                        System.out.println(">>> Timeout triggered for trip " + pattern.get("created").get(0).getTripId());
-                        return new MatchingTimeoutWarning(created.getTripId(), created.getRegion());
-                    }
-                },
-                new PatternSelectFunction<LifecycleEvent, MatchingDuration>() {
-                    @Override
-                    public MatchingDuration select(Map<String, List<LifecycleEvent>> pattern) throws Exception {
-                        LifecycleEvent created = pattern.get("created").get(0);
-                        LifecycleEvent matched = pattern.get("matched").get(0);
-                        return new MatchingDuration(
-                                created.getTripId(),
-                                created.getRegion(),
-                                matched.getTimestamp() - created.getTimestamp()
-                        );
-                    }
-                }
-        );
-
-        DataStream<MatchingTimeoutWarning> timeoutWarnings = resultStream.getSideOutput(timeoutTag);
+        DataStream<MatchingTimeoutWarning> timeoutWarnings = resultStream.getSideOutput(MATCHING_TIMEOUT_TAG);
         timeoutWarnings.addSink(timeoutWarningSink);
+
 
         //anomalous trip requests
         Pattern<LifecycleEvent, ?> anomalousPattern = Pattern.<LifecycleEvent>begin("created")
@@ -421,6 +360,24 @@ public class EventProcessingEnvironment implements IEventProcessingEnvironment {
         @Override
         public void onPeriodicEmit(WatermarkOutput watermarkOutput) {
 
+        }
+    }
+
+    private static class MatchingDurationFunction extends PatternProcessFunction<LifecycleEvent, MatchingDuration>
+            implements TimedOutPartialMatchHandler<LifecycleEvent> {
+
+        @Override
+        public void processMatch(Map<String, List<LifecycleEvent>> pattern, Context ctx, Collector<MatchingDuration> out) {
+            LifecycleEvent created = pattern.get("created").get(0);
+            LifecycleEvent matched = pattern.get("matched").get(0);
+            long duration = matched.getTimestamp() - created.getTimestamp();
+            out.collect(new MatchingDuration(created.getTripId(), created.getRegion(), duration));
+        }
+
+        @Override
+        public void processTimedOutMatch(Map<String, List<LifecycleEvent>> pattern, Context ctx) {
+            LifecycleEvent created = pattern.get("created").get(0);
+            ctx.output(MATCHING_TIMEOUT_TAG, new MatchingTimeoutWarning(created.getTripId(), created.getRegion()));
         }
     }
 
